@@ -6,8 +6,8 @@ macOS 스크린 타임 추적 도구. 앱 사용 시간과 창 제목을 자동�
 
 ```bash
 swift build -c release
-cp .build/release/focus /usr/local/bin/
-cp .build/release/focusd /usr/local/bin/
+cp .build/release/focus "$HOME/.local/bin/"
+cp .build/release/focusd "$HOME/.local/bin/"
 ```
 
 ## 사용법
