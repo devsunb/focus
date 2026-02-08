@@ -92,7 +92,7 @@ Tests/
 ### Logger
 
 - `NSLock` 기반 스레드 안전 로깅
-- `LogLevel`: `.info`, `.debug` 지원
+- `LogLevel`: `.fault`, `.error`, `.warning`, `.notice`, `.info`, `.debug` 지원 (os.Logger 호환)
 - 데몬(`focusd`)에서 주로 사용
 
 ### DateUtils

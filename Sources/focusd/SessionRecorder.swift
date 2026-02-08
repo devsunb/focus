@@ -1,12 +1,8 @@
 import Foundation
 import FocusCore
 
-private func log(_ message: String) {
-    Logger.log("SessionRecorder", message)
-}
-
-private func debug(_ message: String) {
-    Logger.debug("SessionRecorder", message)
+private func log(_ message: String, level: LogLevel = .notice) {
+    Logger.log("SessionRecorder", message, level: level)
 }
 
 /// 세션 기록 관리
@@ -42,7 +38,7 @@ actor SessionRecorder {
         // 이전 세션 종료
         if let current = currentSession {
             try await endCurrentSession()
-            debug("Ended: \(current.appName)")
+            log("Ended: \(current.appName)", level: .debug)
         }
 
         // 새 세션 시작
@@ -52,7 +48,7 @@ actor SessionRecorder {
             windowTitle: appInfo.windowTitle
         )
         currentSession = try database.insertSession(session)
-        debug("Started: \(appInfo.appName) - \(appInfo.windowTitle ?? "(no title)")")
+        log("Started: \(appInfo.appName) - \(appInfo.windowTitle ?? "(no title)")", level: .debug)
     }
 
     /// 창 제목 변경 시 호출
@@ -60,7 +56,7 @@ actor SessionRecorder {
         guard let current = currentSession else {
             // 데몬 시작 직후 등 아직 세션이 생성되지 않은 상태에서
             // 창 제목 변경 이벤트가 먼저 도착할 수 있음. 이 경우 새 세션을 시작한다.
-            debug("Title changed but no session exists - creating new session for \(appInfo.appName)")
+            log("Title changed but no session exists - creating new session for \(appInfo.appName)", level: .debug)
             try await onAppChanged(to: AppInfo(
                 bundleId: appInfo.bundleId,
                 appName: appInfo.appName,
@@ -80,7 +76,7 @@ actor SessionRecorder {
         }
 
         // 이전 세션 종료하고 새 세션 시작
-        debug("Ended: \(current.appName)")
+        log("Ended: \(current.appName)", level: .debug)
         try await endCurrentSession()
 
         let session = Session(
@@ -89,7 +85,7 @@ actor SessionRecorder {
             windowTitle: title
         )
         currentSession = try database.insertSession(session)
-        debug("Title changed: \(appInfo.appName) - \(title)")
+        log("Title changed: \(appInfo.appName) - \(title)", level: .debug)
     }
 
     /// 현재 세션 종료
@@ -106,7 +102,7 @@ actor SessionRecorder {
     /// 현재 세션 종료 (로그 포함)
     func endCurrentSessionWithLog() async throws {
         if let ended = try await endCurrentSession() {
-            debug("Ended: \(ended.appName)")
+            log("Ended: \(ended.appName)", level: .debug)
         }
     }
 

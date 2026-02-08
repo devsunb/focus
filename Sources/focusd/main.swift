@@ -1,8 +1,8 @@
 import AppKit
 import FocusCore
 
-private func log(_ message: String) {
-    Logger.log("focusd", message)
+private func log(_ message: String, level: LogLevel = .notice) {
+    Logger.log("focusd", message, level: level)
 }
 
 // MARK: - Daemon Context
@@ -39,7 +39,7 @@ struct FocusDaemon {
         do {
             try Config.ensureDataDirectory()
         } catch {
-            log("Failed to create data directory: \(error)")
+            log("Failed to create data directory: \(error)", level: .error)
             exit(1)
         }
 
@@ -53,9 +53,9 @@ struct FocusDaemon {
         let database: Database
         do {
             database = try Database()
-            log("Database initialized at \(Config.databasePath.path)")
+            log("Database initialized at \(Config.databasePath.path)", level: .info)
         } catch {
-            log("Failed to initialize database: \(error)")
+            log("Failed to initialize database: \(error)", level: .error)
             exit(1)
         }
 
@@ -67,7 +67,7 @@ struct FocusDaemon {
         do {
             try recorder.deleteOrphanedSessions()
         } catch {
-            log("Warning: Failed to delete orphaned sessions: \(error)")
+            log("Failed to delete orphaned sessions: \(error)", level: .warning)
         }
 
         // 제외 설정 로드
@@ -91,13 +91,11 @@ struct FocusDaemon {
         do {
             try watcher.start()
             DaemonContext.configWatcher = watcher
-            log("Config watcher started for \(Config.configFilePath.path)")
+            log("Config watcher started for \(Config.configFilePath.path)", level: .info)
         } catch {
-            log("Warning: Config watcher failed to start: \(error.localizedDescription)")
-            log("Config changes will not be detected automatically")
+            log("Config watcher failed to start: \(error.localizedDescription)", level: .warning)
+            log("Config changes will not be detected automatically", level: .warning)
         }
-
-        log("Daemon is running. Press Ctrl+C to stop.")
 
         // NSApplication 이벤트 루프 실행
         NSApplication.shared.run()
@@ -113,9 +111,9 @@ private func writePidFile() {
 
     do {
         try content.write(to: Config.pidFilePath, atomically: true, encoding: .utf8)
-        log("PID file written: \(Config.pidFilePath.path)")
+        log("PID file written: \(Config.pidFilePath.path)", level: .info)
     } catch {
-        log("Warning: Failed to write PID file: \(error)")
+        log("Failed to write PID file: \(error)", level: .warning)
     }
 }
 
@@ -157,7 +155,7 @@ private func shutdown() {
 
     // 5초 후 강제 종료 (DB 락 등으로 무한 대기 방지)
     DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
-        log("Shutdown timeout reached, forcing exit")
+        log("Shutdown timeout reached, forcing exit", level: .error)
         exit(1)
     }
 
@@ -171,7 +169,7 @@ private func shutdown() {
         do {
             try recorder.closeAllSessions()
         } catch {
-            log("Warning: Failed to close sessions: \(error)")
+            log("Failed to close sessions: \(error)", level: .warning)
         }
     }
 

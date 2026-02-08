@@ -75,7 +75,7 @@ public struct ExclusionConfig: Equatable, Sendable {
             let config = try JSONDecoder().decode(ExclusionConfig.self, from: data)
             return config
         } catch {
-            Logger.log("ExclusionConfig", "Failed to parse config file: \(error.localizedDescription)")
+            Logger.error("ExclusionConfig", "Failed to parse config file: \(error.localizedDescription)")
             return .default
         }
     }
@@ -163,7 +163,7 @@ private func compileGlobPattern(_ pattern: String, caseSensitive: Bool) -> NSReg
     do {
         return try NSRegularExpression(pattern: regexPattern, options: options)
     } catch {
-        Logger.log("ExclusionConfig", "Invalid glob pattern '\(pattern)': \(error.localizedDescription)")
+        Logger.warning("ExclusionConfig", "Invalid glob pattern '\(pattern)': \(error.localizedDescription)")
         return nil
     }
 }

@@ -2,8 +2,8 @@ import AppKit
 import ApplicationServices
 import FocusCore
 
-private func log(_ message: String) {
-    Logger.log("AppMonitor", message)
+private func log(_ message: String, level: LogLevel = .notice) {
+    Logger.log("AppMonitor", message, level: level)
 }
 
 /// 앱 및 창 모니터링
@@ -49,7 +49,7 @@ final class AppMonitor {
                     }
                     // 윈도우만 제외된 경우 currentApp은 유지 (타이틀 변경 감시 계속)
                 } catch {
-                    log("Error ending session after config update: \(error)")
+                    log("Error ending session after config update: \(error)", level: .error)
                 }
             }
         }
@@ -78,8 +78,8 @@ final class AppMonitor {
         if trusted {
             log("Accessibility permission granted - window title tracking enabled")
         } else {
-            log("Accessibility permission not granted - only app switching will be tracked")
-            log("Grant permission in System Settings > Privacy & Security > Accessibility")
+            log("Accessibility permission not granted - only app switching will be tracked", level: .warning)
+            log("Grant permission in System Settings > Privacy & Security > Accessibility", level: .warning)
         }
     }
 
@@ -113,20 +113,20 @@ final class AppMonitor {
     }
 
     @objc private func systemWillSleep(_ notification: Notification) {
-        log("System will sleep - ending current session")
+        log("System will sleep - ending current session", level: .info)
         Task {
             do {
                 try await recorder.endCurrentSessionWithLog()
                 currentApp = nil
                 removeAXObserver()
             } catch {
-                log("Error ending session on sleep: \(error)")
+                log("Error ending session on sleep: \(error)", level: .error)
             }
         }
     }
 
     @objc private func systemDidWake(_ notification: Notification) {
-        log("System did wake - resuming monitoring")
+        log("System did wake - resuming monitoring", level: .info)
         captureCurrentApp()
     }
 
@@ -151,7 +151,7 @@ final class AppMonitor {
                     currentApp = nil
                     removeAXObserver()
                 } catch {
-                    log("Error ending session for ignored app: \(error)")
+                    log("Error ending session for ignored app: \(error)", level: .error)
                 }
             }
             return
@@ -182,7 +182,7 @@ final class AppMonitor {
                     removeAXObserver()
                     setupAXObserver(for: app)  // 윈도우 제목 변경 감시 유지
                 } catch {
-                    log("Error ending session for excluded window: \(error)")
+                    log("Error ending session for excluded window: \(error)", level: .error)
                 }
             }
             return
@@ -195,7 +195,7 @@ final class AppMonitor {
             try await recorder.onAppChanged(to: appInfo)
         } catch {
             currentApp = previousApp  // 실패 시 롤백
-            log("Error recording app change: \(error)")
+            log("Error recording app change: \(error)", level: .error)
         }
     }
 
@@ -203,7 +203,7 @@ final class AppMonitor {
 
     private func captureCurrentApp() {
         guard let app = NSWorkspace.shared.frontmostApplication else {
-            log("Warning: Could not get frontmost application at startup")
+            log("Could not get frontmost application at startup", level: .warning)
             return
         }
 
@@ -237,7 +237,7 @@ final class AppMonitor {
                 try await recorder.onAppChanged(to: appInfo)
             } catch {
                 currentApp = nil  // 실패 시 롤백 (시작 시점이므로 이전 앱 없음)
-                log("Error recording initial app: \(error)")
+                log("Error recording initial app: \(error)", level: .error)
             }
         }
     }
@@ -299,7 +299,7 @@ final class AppMonitor {
 
         // 알림 등록 실패 시 무시 (앱 전환 시 재시도되므로 대부분 무시해도 됨)
         guard addResult1 == .success || addResult2 == .success else {
-            Logger.log("AppMonitor", "AX notification failed (\(addResult1.rawValue), \(addResult2.rawValue)) - usually safe to ignore", level: .debug)
+            log("AX notification failed (\(addResult1.rawValue), \(addResult2.rawValue)) - usually safe to ignore", level: .debug)
             return
         }
 
@@ -370,7 +370,7 @@ final class AppMonitor {
                         windowTitle: titleString
                     )
                 } catch {
-                    log("Error ending session for excluded window: \(error)")
+                    log("Error ending session for excluded window: \(error)", level: .error)
                 }
             }
             return
@@ -388,7 +388,7 @@ final class AppMonitor {
                     windowTitle: titleString
                 )
             } catch {
-                log("Error recording title change: \(error)")
+                log("Error recording title change: \(error)", level: .error)
             }
         }
     }

@@ -26,6 +26,10 @@ public final class ConfigWatcher {
     /// 디바운스 간격 (밀리초)
     private let debounceInterval: Int = 100
 
+    private func log(_ message: String, level: LogLevel = .notice) {
+        Logger.log("ConfigWatcher", message, level: level)
+    }
+
     public init(path: URL, onChange: @escaping () -> Void) {
         self.path = path
         self.onChange = onChange
@@ -115,7 +119,7 @@ public final class ConfigWatcher {
 
         // 파일이 삭제/이동된 경우: atomic save일 수 있으므로 재시도
         if !FileManager.default.fileExists(atPath: path.path) {
-            Logger.log("ConfigWatcher", "Config file not found, waiting for atomic save to complete...")
+            log("Config file not found, waiting for atomic save to complete...", level: .info)
             waitForFile(retriesLeft: maxRetries)
             return
         }
@@ -138,7 +142,7 @@ public final class ConfigWatcher {
         retryTimer = nil
 
         guard retriesLeft > 0 else {
-            Logger.log("ConfigWatcher", "Config file not restored after retries, continuing with last config")
+            log("Config file not restored after retries, continuing with last config", level: .warning)
             return
         }
 
@@ -153,7 +157,7 @@ public final class ConfigWatcher {
             }
 
             if FileManager.default.fileExists(atPath: self.path.path) {
-                Logger.log("ConfigWatcher", "Config file restored, reloading")
+                log("Config file restored, reloading", level: .info)
                 timer.cancel()
                 self.retryTimer = nil
                 // 파일이 돌아왔으면 감시 재시작 후 변경 알림
@@ -165,12 +169,12 @@ public final class ConfigWatcher {
                 } catch {
                     // start() 실패 시 source는 이미 nil 상태
                     // 설정 변경 자동 감지만 비활성화되며, 현재 로드된 설정은 유지됨
-                    Logger.log("ConfigWatcher", "Failed to restart watcher: \(error.localizedDescription). Auto-reload disabled until daemon restart.")
+                    log("Failed to restart watcher: \(error.localizedDescription). Auto-reload disabled until daemon restart.", level: .error)
                 }
             } else {
                 remainingRetries -= 1
                 if remainingRetries <= 0 {
-                    Logger.log("ConfigWatcher", "Config file not restored after retries, continuing with last config")
+                    log("Config file not restored after retries, continuing with last config", level: .warning)
                     timer.cancel()
                     self.retryTimer = nil
                 }
