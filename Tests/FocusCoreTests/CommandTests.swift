@@ -97,6 +97,40 @@ struct CommandTests {
         #expect(result.stderr.contains("Cannot use --app with --all"))
     }
 
+    // MARK: - Relative Time Acceptance
+
+    @Test("summary: accepts relative time as date argument")
+    func summaryRelativeTime() throws {
+        let result = try run(["summary", "3h"])
+        // 성공 (exit 0) 또는 "No activity" (데이터 없음) — validation 에러 아님
+        #expect(!result.stderr.contains("Invalid"))
+    }
+
+    @Test("summary: accepts relative time with --from")
+    func summaryRelativeTimeFrom() throws {
+        let result = try run(["summary", "--from", "1w"])
+        #expect(!result.stderr.contains("Invalid"))
+    }
+
+    @Test("log: accepts relative time with --date")
+    func logRelativeTime() throws {
+        let result = try run(["log", "--date", "2d"])
+        #expect(!result.stderr.contains("Invalid"))
+    }
+
+    @Test("log: accepts relative time with --from")
+    func logRelativeTimeFrom() throws {
+        let result = try run(["log", "--from", "1d", "--to", "30m"])
+        #expect(!result.stderr.contains("Invalid"))
+    }
+
+    @Test("delete: accepts relative time with --date (dry run)")
+    func deleteRelativeTime() throws {
+        let result = try run(["delete", "--date", "1h"])
+        // dry run이므로 삭제는 안 됨, validation 에러 없어야 함
+        #expect(!result.stderr.contains("Invalid"))
+    }
+
     // MARK: - Help Output
 
     @Test("top-level --help lists subcommands")

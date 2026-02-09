@@ -14,13 +14,13 @@ struct DeleteCommand: ParsableCommand {
     @Option(name: .long, help: "Delete sessions by app name (partial match)")
     var app: String?
 
-    @Option(name: .long, help: "Delete sessions on specific date (YYYY-MM-DD)")
+    @Option(name: .long, help: "Delete sessions on date or relative time (YYYY-MM-DD or 1w2d3h)")
     var date: String?
 
-    @Option(name: .long, help: "Delete sessions from (YYYY-MM-DD or \"YYYY-MM-DD HH:mm\")")
+    @Option(name: .long, help: "Delete sessions from (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h)")
     var from: String?
 
-    @Option(name: .long, help: "Delete sessions to (default: now)")
+    @Option(name: .long, help: "Delete sessions to (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h; default: now)")
     var to: String?
 
     @Flag(name: .long, help: "Delete all sessions")
@@ -70,7 +70,11 @@ struct DeleteCommand: ParsableCommand {
         } else if let appName = app {
             try deleteByAppName(database: database, appName: appName)
         } else if let dateStr = date {
-            try deleteByDate(database: database, dateStr: dateStr)
+            if DateUtils.isRelativeTime(dateStr) {
+                try deleteByRelativeDate(database: database, relativeStr: dateStr)
+            } else {
+                try deleteByDate(database: database, dateStr: dateStr)
+            }
         } else if let fromStr = from {
             try deleteByRange(database: database, fromStr: fromStr, toStr: to)
         } else if all {
@@ -84,7 +88,7 @@ struct DeleteCommand: ParsableCommand {
             return nil
         }
         guard let range = DateUtils.parseDateOptions(date: date, from: from, to: to) else {
-            throw ValidationError("Invalid date format. Use YYYY-MM-DD or \"YYYY-MM-DD HH:mm\"")
+            throw ValidationError("Invalid date format. Use YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h")
         }
         return range
     }
@@ -139,9 +143,32 @@ struct DeleteCommand: ParsableCommand {
         }
     }
 
+    private func deleteByRelativeDate(database: Database, relativeStr: String) throws {
+        guard let (startDate, endDate) = DateUtils.parseDateOptions(date: relativeStr, from: nil, to: nil) else {
+            throw ValidationError("Invalid relative time format. Use 1w2d3h4m5s.")
+        }
+
+        let fromDisplay = DateUtils.formatDateTime(startDate)
+        let toDisplay = DateUtils.formatDateTime(endDate)
+        let sessions = try database.fetchSessions(from: startDate, to: endDate)
+        if sessions.isEmpty {
+            print("No sessions found from \(fromDisplay) to \(toDisplay).")
+            return
+        }
+
+        printSessionsToDelete(sessions)
+
+        if yes {
+            let count = try database.deleteSessions(from: startDate, to: endDate)
+            print("Deleted \(count) sessions.")
+        } else {
+            printDryRunHint()
+        }
+    }
+
     private func deleteByDate(database: Database, dateStr: String) throws {
         guard let (date, _) = DateUtils.parse(dateStr) else {
-            throw ValidationError("Invalid date format. Use YYYY-MM-DD")
+            throw ValidationError("Invalid date format. Use YYYY-MM-DD or 1w2d3h")
         }
 
         let sessions = try database.fetchSessions(for: date)
@@ -167,7 +194,7 @@ struct DeleteCommand: ParsableCommand {
 
     private func deleteByRange(database: Database, fromStr: String, toStr: String?) throws {
         guard let (startDate, endDate) = DateUtils.dateRange(from: fromStr, to: toStr) else {
-            throw ValidationError("Invalid date format. Use YYYY-MM-DD or \"YYYY-MM-DD HH:mm\"")
+            throw ValidationError("Invalid date format. Use YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h")
         }
 
         let toDisplay = toStr ?? "now"

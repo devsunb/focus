@@ -8,13 +8,13 @@ struct SummaryCommand: ParsableCommand {
         abstract: "Show usage summary by app"
     )
 
-    @Argument(help: "Date to show (YYYY-MM-DD, default: today)")
+    @Argument(help: "Date or relative time (YYYY-MM-DD, 1w2d3h, default: today)")
     var date: String?
 
-    @Option(name: .long, help: "From date/time (YYYY-MM-DD or \"YYYY-MM-DD HH:mm\")")
+    @Option(name: .long, help: "From date/time (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h)")
     var from: String?
 
-    @Option(name: .long, help: "To date/time (default: now)")
+    @Option(name: .long, help: "To date/time (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h; default: now)")
     var to: String?
 
     @Flag(name: .shortAndLong, help: "Show summary by window")
@@ -37,6 +37,8 @@ struct SummaryCommand: ParsableCommand {
 
         if let fromStr = from {
             try showRange(database: database, fromStr: fromStr, toStr: to)
+        } else if let dateStr = date, DateUtils.isRelativeTime(dateStr) {
+            try showRelativeRange(database: database, relativeStr: dateStr)
         } else {
             try showSingleDay(database: database)
         }
@@ -44,11 +46,30 @@ struct SummaryCommand: ParsableCommand {
 
     // MARK: - Single Day
 
+    private func showRelativeRange(database: Database, relativeStr: String) throws {
+        guard let (startDate, endDate) = DateUtils.parseDateOptions(date: relativeStr, from: nil, to: nil) else {
+            throw ValidationError("Invalid relative time format. Use 1w2d3h4m5s.")
+        }
+
+        let fromDisplay = DateUtils.formatDateTime(startDate)
+        let toDisplay = DateUtils.formatDateTime(endDate)
+        let header = window
+            ? "Window Summary from \(fromDisplay) to \(toDisplay)"
+            : "Usage Summary from \(fromDisplay) to \(toDisplay)"
+        let emptyMessage = "No activity recorded from \(fromDisplay) to \(toDisplay)."
+
+        if window {
+            try showSummary(database.windowSummaries(from: startDate, to: endDate), header: header, emptyMessage: emptyMessage)
+        } else {
+            try showSummary(database.appSummaries(from: startDate, to: endDate), header: header, emptyMessage: emptyMessage)
+        }
+    }
+
     private func showSingleDay(database: Database) throws {
         let targetDate: Date
         if let dateStr = date {
             guard let (parsed, _) = DateUtils.parse(dateStr) else {
-                throw ValidationError("Invalid date format. Use YYYY-MM-DD.")
+                throw ValidationError("Invalid date format. Use YYYY-MM-DD or 1w2d3h.")
             }
             targetDate = parsed
         } else {
@@ -71,14 +92,15 @@ struct SummaryCommand: ParsableCommand {
 
     private func showRange(database: Database, fromStr: String, toStr: String?) throws {
         guard let (startDate, endDate) = DateUtils.dateRange(from: fromStr, to: toStr) else {
-            throw ValidationError("Invalid date format. Use YYYY-MM-DD or \"YYYY-MM-DD HH:mm\"")
+            throw ValidationError("Invalid date format. Use YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h")
         }
 
-        let toDisplay = toStr ?? "now"
+        let fromDisplay = DateUtils.formatDateTime(startDate)
+        let toDisplay = DateUtils.formatDateTime(endDate)
         let header = window
-            ? "Window Summary from \(fromStr) to \(toDisplay)"
-            : "Usage Summary from \(fromStr) to \(toDisplay)"
-        let emptyMessage = "No activity recorded from \(fromStr) to \(toDisplay)."
+            ? "Window Summary from \(fromDisplay) to \(toDisplay)"
+            : "Usage Summary from \(fromDisplay) to \(toDisplay)"
+        let emptyMessage = "No activity recorded from \(fromDisplay) to \(toDisplay)."
 
         if window {
             try showSummary(database.windowSummaries(from: startDate, to: endDate), header: header, emptyMessage: emptyMessage)

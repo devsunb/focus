@@ -14,13 +14,13 @@ struct LogCommand: ParsableCommand {
     @Option(name: .long, help: "Filter by app name")
     var app: String?
 
-    @Option(name: .long, help: "Filter by specific date (YYYY-MM-DD)")
+    @Option(name: .long, help: "Filter by date or relative time (YYYY-MM-DD or 1w2d3h)")
     var date: String?
 
-    @Option(name: .long, help: "From date/time (YYYY-MM-DD or \"YYYY-MM-DD HH:mm\")")
+    @Option(name: .long, help: "From date/time (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h)")
     var from: String?
 
-    @Option(name: .long, help: "To date/time (default: now)")
+    @Option(name: .long, help: "To date/time (YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h; default: now)")
     var to: String?
 
     @Option(name: .shortAndLong, help: "Maximum number of results")
@@ -76,7 +76,7 @@ struct LogCommand: ParsableCommand {
             return (nil, nil)
         }
         guard let range = DateUtils.parseDateOptions(date: date, from: from, to: to) else {
-            throw ValidationError("Invalid date format. Use YYYY-MM-DD or \"YYYY-MM-DD HH:mm\"")
+            throw ValidationError("Invalid date format. Use YYYY-MM-DD, \"YYYY-MM-DD HH:mm\", or 1w2d3h")
         }
         return (range.start, range.end)
     }
