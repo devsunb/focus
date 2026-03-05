@@ -13,7 +13,6 @@ final class AppMonitor {
     private var currentApp: AppInfo?
     private var axObserver: AXObserver?
     private var observedElement: AXUIElement?
-    private var hasAccessibilityPermission = false
 
     /// 제외 설정
     private var exclusionConfig: ExclusionConfig
@@ -57,7 +56,6 @@ final class AppMonitor {
 
     /// 모니터링 시작
     func start() {
-        checkAccessibilityPermission()
         setupAppActivationObserver()
         setupSleepWakeObserver()
         captureCurrentApp()
@@ -67,20 +65,6 @@ final class AppMonitor {
     func stop() {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         removeAXObserver()
-    }
-
-    // MARK: - Accessibility Permission
-
-    private func checkAccessibilityPermission() {
-        let trusted = AXIsProcessTrusted()
-        hasAccessibilityPermission = trusted
-
-        if trusted {
-            log("Accessibility permission granted - window title tracking enabled")
-        } else {
-            log("Accessibility permission not granted - only app switching will be tracked", level: .warning)
-            log("Grant permission in System Settings > Privacy & Security > Accessibility", level: .warning)
-        }
     }
 
     // MARK: - App Activation Observer
@@ -159,12 +143,8 @@ final class AppMonitor {
 
         let appName = app.localizedName.flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown"
 
-        // 창 제목 가져오기 (접근성 권한 있을 때만)
-        var windowTitle: String? = nil
-        if hasAccessibilityPermission {
-            windowTitle = getWindowTitle(for: app)
-            setupAXObserver(for: app)
-        }
+        let windowTitle = getWindowTitle(for: app)
+        setupAXObserver(for: app)
 
         let appInfo = AppInfo(bundleId: bundleId, appName: appName, windowTitle: windowTitle)
 
@@ -216,11 +196,8 @@ final class AppMonitor {
 
         let appName = app.localizedName.flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown"
 
-        var windowTitle: String? = nil
-        if hasAccessibilityPermission {
-            windowTitle = getWindowTitle(for: app)
-            setupAXObserver(for: app)
-        }
+        let windowTitle = getWindowTitle(for: app)
+        setupAXObserver(for: app)
 
         let appInfo = AppInfo(bundleId: bundleId, appName: appName, windowTitle: windowTitle)
 

@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import FocusCore
 
 private func log(_ message: String, level: LogLevel = .notice) {
@@ -73,6 +74,15 @@ struct FocusDaemon {
         // 제외 설정 로드
         let exclusionConfig = ExclusionConfig.load(from: Config.configFilePath)
         log("Exclusion config loaded: \(exclusionConfig.excludedApps.count) apps, \(exclusionConfig.excludedWindows.count) windows")
+
+        // 접근성 권한 확인 (없으면 시스템 설정 팝업 표시)
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        guard AXIsProcessTrustedWithOptions(options) else {
+            log("Accessibility permission not granted", level: .error)
+            log("Grant permission in System Settings > Privacy & Security > Accessibility", level: .error)
+            exit(1)
+        }
+        log("Accessibility permission granted")
 
         // 앱 모니터 시작
         let monitor = AppMonitor(recorder: recorder, exclusionConfig: exclusionConfig)

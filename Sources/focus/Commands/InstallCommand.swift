@@ -36,7 +36,10 @@ struct InstallCommand: ParsableCommand {
             <key>RunAtLoad</key>
             <true/>
             <key>KeepAlive</key>
-            <true/>
+            <dict>
+                <key>SuccessfulExit</key>
+                <true/>
+            </dict>
             <key>StandardOutPath</key>
             <string>\(Config.logFilePath.path)</string>
             <key>StandardErrorPath</key>
