@@ -272,12 +272,13 @@ public final class Database: Sendable {
 
     // MARK: - Aggregation
 
-    /// SQL 집계용 duration 표현식 (초 단위)
-    /// - Parameter now: 현재 시각 (쿼리 내 일관성을 위해 호출 시점에 명시적 전달 필수)
-    private static func durationExpression(now: Date) -> SQL {
+    /// SQL 집계용 duration 표현식 (초 단위, 조회 범위 경계로 클램핑)
+    /// 자정을 넘는 세션의 duration이 해당 범위 내 시간만 계산되도록 보장
+    private static func clampedDurationExpression(now: Date, rangeStart: Date, rangeEnd: Date) -> SQL {
         SQL("""
-            strftime('%s', COALESCE(\(Session.Columns.endedAt), \(now))) \
-            - strftime('%s', \(Session.Columns.startedAt))
+            MAX(0, \
+            strftime('%s', MIN(COALESCE(\(Session.Columns.endedAt), \(now)), \(rangeEnd))) \
+            - strftime('%s', MAX(\(Session.Columns.startedAt), \(rangeStart))))
             """)
     }
 
@@ -298,10 +299,10 @@ public final class Database: Sendable {
 
         return try dbQueue.read { db in
             let request: SQLRequest<Row> = """
-                SELECT COALESCE(SUM(\(Self.durationExpression(now: now))), 0) as totalSeconds
+                SELECT COALESCE(SUM(\(Self.clampedDurationExpression(now: now, rangeStart: startOfDay, rangeEnd: endOfDay))), 0) as totalSeconds
                 FROM \(Session.self)
-                WHERE \(Session.Columns.startedAt) >= \(startOfDay)
-                  AND \(Session.Columns.startedAt) < \(endOfDay)
+                WHERE \(Session.Columns.startedAt) < \(endOfDay)
+                  AND COALESCE(\(Session.Columns.endedAt), \(now)) > \(startOfDay)
                 """
             let row = try request.fetchOne(db)
             return row?["totalSeconds"] ?? 0
@@ -316,11 +317,11 @@ public final class Database: Sendable {
         return try dbQueue.read { db in
             let request: SQLRequest<AppSummary> = """
                 SELECT \(Session.Columns.bundleId), \(Session.Columns.appName),
-                       SUM(\(Self.durationExpression(now: now))) as totalSeconds,
+                       SUM(\(Self.clampedDurationExpression(now: now, rangeStart: startOfDay, rangeEnd: endOfDay))) as totalSeconds,
                        COUNT(*) as sessionCount
                 FROM \(Session.self)
-                WHERE \(Session.Columns.startedAt) >= \(startOfDay)
-                  AND \(Session.Columns.startedAt) < \(endOfDay)
+                WHERE \(Session.Columns.startedAt) < \(endOfDay)
+                  AND COALESCE(\(Session.Columns.endedAt), \(now)) > \(startOfDay)
                 GROUP BY \(Session.Columns.bundleId)
                 ORDER BY totalSeconds DESC
                 """
@@ -334,11 +335,11 @@ public final class Database: Sendable {
         return try dbQueue.read { db in
             let request: SQLRequest<AppSummary> = """
                 SELECT \(Session.Columns.bundleId), \(Session.Columns.appName),
-                       SUM(\(Self.durationExpression(now: now))) as totalSeconds,
+                       SUM(\(Self.clampedDurationExpression(now: now, rangeStart: startDate, rangeEnd: endDate))) as totalSeconds,
                        COUNT(*) as sessionCount
                 FROM \(Session.self)
-                WHERE \(Session.Columns.startedAt) >= \(startDate)
-                  AND \(Session.Columns.startedAt) < \(endDate)
+                WHERE \(Session.Columns.startedAt) < \(endDate)
+                  AND COALESCE(\(Session.Columns.endedAt), \(now)) > \(startDate)
                 GROUP BY \(Session.Columns.bundleId)
                 ORDER BY totalSeconds DESC
                 """
@@ -356,11 +357,11 @@ public final class Database: Sendable {
             let request: SQLRequest<WindowSummary> = """
                 SELECT \(Session.Columns.bundleId), \(Session.Columns.appName),
                        \(windowTitleExpr) as windowTitle,
-                       SUM(\(Self.durationExpression(now: now))) as totalSeconds,
+                       SUM(\(Self.clampedDurationExpression(now: now, rangeStart: startOfDay, rangeEnd: endOfDay))) as totalSeconds,
                        COUNT(*) as sessionCount
                 FROM \(Session.self)
-                WHERE \(Session.Columns.startedAt) >= \(startOfDay)
-                  AND \(Session.Columns.startedAt) < \(endOfDay)
+                WHERE \(Session.Columns.startedAt) < \(endOfDay)
+                  AND COALESCE(\(Session.Columns.endedAt), \(now)) > \(startOfDay)
                 GROUP BY \(Session.Columns.bundleId), \(windowTitleExpr)
                 ORDER BY totalSeconds DESC
                 """
@@ -376,11 +377,11 @@ public final class Database: Sendable {
             let request: SQLRequest<WindowSummary> = """
                 SELECT \(Session.Columns.bundleId), \(Session.Columns.appName),
                        \(windowTitleExpr) as windowTitle,
-                       SUM(\(Self.durationExpression(now: now))) as totalSeconds,
+                       SUM(\(Self.clampedDurationExpression(now: now, rangeStart: startDate, rangeEnd: endDate))) as totalSeconds,
                        COUNT(*) as sessionCount
                 FROM \(Session.self)
-                WHERE \(Session.Columns.startedAt) >= \(startDate)
-                  AND \(Session.Columns.startedAt) < \(endDate)
+                WHERE \(Session.Columns.startedAt) < \(endDate)
+                  AND COALESCE(\(Session.Columns.endedAt), \(now)) > \(startDate)
                 GROUP BY \(Session.Columns.bundleId), \(windowTitleExpr)
                 ORDER BY totalSeconds DESC
                 """
